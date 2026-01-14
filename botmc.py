@@ -3,12 +3,14 @@ import discord
 from discord.ext import commands, tasks
 from mcstatus import JavaServer
 import asyncio
+from dotenv import load_dotenv
 
-# ===== CONFIGURACIÓN DESDE VARIABLES DE ENTORNO =====
+# Cargar variables desde .env
+load_dotenv()
+
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 MC_SERVER = os.getenv("MC_SERVER")
-# ===================================================
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -39,13 +41,11 @@ async def monitorear():
                 )
             servidor_estaba_on = True
 
-    except Exception as e:
+    except:
         servidor_estaba_on = False
-        print(f"Servidor offline o error: {e}")
 
 @bot.command(name='mc')
 async def check(ctx):
-    """Verifica si el servidor está online"""
     try:
         server = JavaServer.lookup(MC_SERVER)
         status = await asyncio.to_thread(server.status)
@@ -62,9 +62,5 @@ async def check(ctx):
 
     except:
         await ctx.send("🔴 **Servidor OFFLINE** (apagado o no responde)")
-
-# ===== VALIDACIÓN DE VARIABLES =====
-if not TOKEN or not CHANNEL_ID or not MC_SERVER:
-    raise ValueError("❌ Faltan variables de entorno. Revisa DISCORD_TOKEN, CHANNEL_ID y MC_SERVER.")
 
 bot.run(TOKEN)

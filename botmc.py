@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands, tasks
 from mcstatus import JavaServer
 from dotenv import load_dotenv
+import asyncio
 
 # =====================
 # CARGAR VARIABLES
@@ -47,15 +48,16 @@ async def on_ready():
 async def monitor():
     global server_online
     channel = bot.get_channel(CHANNEL_ID)
+    server = get_server()
 
     try:
-        server = get_server()
-        server.query()  # SOLO responde cuando ya deja entrar
-
+        # Usamos status en vez de query
+        status = await asyncio.to_thread(server.status)
         if not server_online:
             await channel.send(
                 f"🟢 **Servidor ENCENDIDO**\n"
-                f"📍 `{MC_SERVER}`"
+                f"📍 `{MC_SERVER}`\n"
+                f"👥 Jugadores conectados: {status.players.online}/{status.players.max}"
             )
             server_online = True
 
@@ -75,16 +77,16 @@ async def mc(ctx):
     if ctx.channel.id != CHANNEL_ID:
         return  # solo responde en este canal
 
+    server = get_server()
     try:
-        server = get_server()
-        query = server.query()
-
+        status = await asyncio.to_thread(server.status)
         await ctx.send(
             f"🟢 **Servidor ONLINE**\n"
             f"📍 `{MC_SERVER}`\n"
-            f"👥 Jugadores: {len(query.players.names)}/{query.players.max}"
+            f"👥 Jugadores conectados: {status.players.online}/{status.players.max}\n"
+            f"⏱ Latencia: {round(status.latency)}ms\n"
+            f"⚙ Versión: {status.version.name}"
         )
-
     except Exception:
         await ctx.send("🔴 **Servidor OFFLINE**")
 

@@ -7,7 +7,7 @@ import asyncio
 import socket
 
 # =====================
-# CONFIGURACIÓN INICIAL
+# CARGAR VARIABLES
 # =====================
 load_dotenv()
 
@@ -51,10 +51,12 @@ async def on_ready():
 @tasks.loop(minutes=1)
 async def monitor():
     global server_online
-    channel = bot.get_channel(CHANNEL_ID)
     server = get_server()
 
     try:
+        # Obtenemos el canal desde la API, nunca será None
+        channel = await bot.fetch_channel(CHANNEL_ID)
+
         status = await asyncio.to_thread(server.status)
 
         if not server_online:
@@ -66,7 +68,8 @@ async def monitor():
             server_online = True
 
     except Exception as e:
-        if server_online:
+        # Si el servidor estaba online, avisamos que se apagó
+        if server_online and 'channel' in locals() and channel is not None:
             await channel.send(
                 f"🔴 **Servidor APAGADO**\n"
                 f"📍 `{MC_SERVER}`"
@@ -80,10 +83,7 @@ async def monitor():
 # =====================
 @bot.command()
 async def mc(ctx):
-    # Puedes comentar esta línea para probar en cualquier canal
-    # if ctx.channel.id != CHANNEL_ID:
-    #     return
-
+    # Debug: saber que el comando fue recibido
     print(f"[Comando !mc] recibido en canal {ctx.channel.id}")
     server = get_server()
 

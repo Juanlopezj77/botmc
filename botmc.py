@@ -55,27 +55,38 @@ async def monitor():
 
     try:
         # Obtenemos el canal desde la API, nunca será None
-        channel = await bot.fetch_channel(CHANNEL_ID)
+        try:
+            channel = await bot.fetch_channel(CHANNEL_ID)
+        except Exception as e:
+            print(f"[Monitor] No se pudo obtener el canal: {e}")
+            channel = None
 
         status = await asyncio.to_thread(server.status)
 
-        if not server_online:
-            await channel.send(
-                f"🟢 **Servidor ENCENDIDO**\n"
-                f"📍 `{MC_SERVER}`\n"
-                f"👥 Jugadores conectados: {status.players.online}/{status.players.max}"
-            )
-            server_online = True
+        # Revisamos si la versión indica Offline
+        if status.version.name.lower() == "§c● offline":
+            mensaje_estado = "🔴 Servidor INACTIVO"
+            actualmente_online = False
+        else:
+            mensaje_estado = "🟢 Servidor ONLINE"
+            actualmente_online = True
+
+        # Solo enviamos mensaje si cambia el estado
+        if actualmente_online != server_online and channel:
+            if actualmente_online:
+                await channel.send(
+                    f"🟢 **Servidor ENCENDIDO**\n"
+                    f"📍 `{MC_SERVER}`\n"
+                    f"👥 Jugadores conectados: {status.players.online}/{status.players.max}"
+                )
+            else:
+                await channel.send(
+                    f"🔴 **Servidor INACTIVO**\n"
+                    f"📍 `{MC_SERVER}`"
+                )
+            server_online = actualmente_online
 
     except Exception as e:
-        # Si el servidor estaba online, avisamos que se apagó
-        if server_online and 'channel' in locals() and channel is not None:
-            await channel.send(
-                f"🔴 **Servidor APAGADO**\n"
-                f"📍 `{MC_SERVER}`"
-            )
-            server_online = False
-        # Solo loguea el error en consola
         print(f"[Monitor] Error al consultar el servidor: {e}")
 
 # =====================
@@ -83,23 +94,29 @@ async def monitor():
 # =====================
 @bot.command()
 async def mc(ctx):
-    # Debug: saber que el comando fue recibido
     print(f"[Comando !mc] recibido en canal {ctx.channel.id}")
     server = get_server()
 
     try:
         status = await asyncio.to_thread(server.status)
+
+        # Revisamos si la versión indica Offline
+        if status.version.name.lower() == "§c● offline":
+            mensaje_estado = "🔴 Servidor INACTIVO"
+        else:
+            mensaje_estado = "🟢 Servidor ONLINE"
+
         await ctx.send(
-            f"🟢 **Servidor ONLINE**\n"
+            f"{mensaje_estado}\n"
             f"📍 `{MC_SERVER}`\n"
             f"👥 Jugadores conectados: {status.players.online}/{status.players.max}\n"
             f"⏱ Latencia: {round(status.latency)}ms\n"
             f"⚙ Versión: {status.version.name}"
         )
+
     except Exception as e:
-        # Solo loguea en consola, no en Discord
         print(f"[Comando !mc] Error al consultar el servidor: {e}")
-        await ctx.send("🔴 **Servidor OFFLINE**")
+        await ctx.send("🔴 Servidor OFFLINE")
 
 # =====================
 # INICIAR BOT

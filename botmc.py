@@ -4,9 +4,10 @@ from discord.ext import commands, tasks
 from mcstatus import JavaServer
 from dotenv import load_dotenv
 import asyncio
+import socket
 
 # =====================
-# CARGAR VARIABLES
+# CONFIGURACIÓN INICIAL
 # =====================
 load_dotenv()
 
@@ -14,8 +15,11 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 MC_SERVER = os.getenv("MC_SERVER")  # ip:puerto
 
+# Timeout global para evitar que mcstatus se quede colgado
+socket.setdefaulttimeout(10)  # 10 segundos
+
 # =====================
-# MINECRAFT SERVER
+# SERVIDOR MINECRAFT
 # =====================
 def get_server():
     if ":" in MC_SERVER:
@@ -24,10 +28,10 @@ def get_server():
     return JavaServer(MC_SERVER, 25565)
 
 # =====================
-# DISCORD CONFIG
+# CONFIG DISCORD
 # =====================
 intents = discord.Intents.default()
-intents.message_content = True  # 🔴 OBLIGATORIO PARA !mc
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -51,8 +55,8 @@ async def monitor():
     server = get_server()
 
     try:
-        # Usamos status en vez de query
         status = await asyncio.to_thread(server.status)
+
         if not server_online:
             await channel.send(
                 f"🟢 **Servidor ENCENDIDO**\n"
@@ -61,23 +65,28 @@ async def monitor():
             )
             server_online = True
 
-    except Exception:
+    except Exception as e:
         if server_online:
             await channel.send(
                 f"🔴 **Servidor APAGADO**\n"
                 f"📍 `{MC_SERVER}`"
             )
             server_online = False
+        # Solo loguea el error en consola
+        print(f"[Monitor] Error al consultar el servidor: {e}")
 
 # =====================
 # COMANDO !mc
 # =====================
 @bot.command()
 async def mc(ctx):
-    if ctx.channel.id != CHANNEL_ID:
-        return  # solo responde en este canal
+    # Puedes comentar esta línea para probar en cualquier canal
+    # if ctx.channel.id != CHANNEL_ID:
+    #     return
 
+    print(f"[Comando !mc] recibido en canal {ctx.channel.id}")
     server = get_server()
+
     try:
         status = await asyncio.to_thread(server.status)
         await ctx.send(
@@ -87,10 +96,12 @@ async def mc(ctx):
             f"⏱ Latencia: {round(status.latency)}ms\n"
             f"⚙ Versión: {status.version.name}"
         )
-    except Exception:
+    except Exception as e:
+        # Solo loguea en consola, no en Discord
+        print(f"[Comando !mc] Error al consultar el servidor: {e}")
         await ctx.send("🔴 **Servidor OFFLINE**")
 
 # =====================
-# START BOT
+# INICIAR BOT
 # =====================
 bot.run(TOKEN)
